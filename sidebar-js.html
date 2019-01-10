@@ -63,6 +63,8 @@ function updateSidebar(category) {
       };
 
   // Update code and text
+  $('#link_code').html('#' + lab_code);
+  $('#link_text').val(lab_text);
   $('#lab_code').html('#' + lab_code);
   $('#lab_text').val(lab_text);
   $('#ref_code').val(lab_code.substr(0, 3)).html('#' + lab_code.substr(0, 3));
@@ -499,5 +501,30 @@ $('#save-apply').on('click', function() {
 $('#cancel').on('click', function() {
   google.script.host.close()
 })
+
+
+// Generate Links actions
+
+$('#try-links').on('click', function() {
+  var code = $('#link_code').text();
+  var text = $('#link_text').val();
+  console.log('try-links');
+  console.log(code, text);
+  google.script.run.withSuccessHandler(showLinks).createLinks(text, code, false);
+})
+
+$('#generate-links').on('click', function() {
+  var code = $('#link_code').text();
+  var text = $('#link_text').val();
+  console.log('generate-links');
+  console.log(code, text);
+  google.script.run.withSuccessHandler(showLinks).createLinks(text, code, true);
+})
+
+function showLinks(links) {
+  console.log('try-links done');
+  console.log(links);
+  $('#generated-links').val(links.join('\n'));
+}
 
 </script>

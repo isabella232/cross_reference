@@ -24,6 +24,7 @@ function onOpen( e ) {
     .addItem( 'Configure', 'showSidebar' )
     .addSeparator()
     .addItem( 'Create list of figures (beta)', 'createLoF' )
+    .addItem( 'Create list of tables  (beta)', 'createLoT' )
     .addToUi();
 }
 

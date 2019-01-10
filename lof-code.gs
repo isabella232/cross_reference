@@ -1,19 +1,36 @@
-function createLoF() {
+var types = {
+  fig: { name: 'figure ', text: 'Figure ', key: 'fig', five: 'figur', descMarker: 'ഛಎ', indexMarker: '☙', namedRange: 'lofTable' },
+  tab: { name: 'table ', text: 'Table ', key: 'tab', five: 'table', descMarker: 'ഭഫ', indexMarker: '❧', namedRange: 'lotTable'  },
+  equ: { name: 'equation ', text: 'Equation ', key: 'equ', five: 'equat', descMarker: 'ടച', indexMarker: '❦', namedRange: 'loeTable'  },
+  fno: { name: 'footnote ', text: 'Footnote ', key: 'fno', five: 'fnote', descMarker: 'തമ', indexMarker: '❥', namedRange: 'lonTable'  }
+};
 
+function createLoF() {
+  createIndex( 'fig' );
+}
+
+function createLoT() {
+  createIndex( 'tab' );
+}
+
+function createIndex(key) {
+  var type = types[key];
   var cursor = getCursorIndex();
-  var labSettings = PropertiesService.getDocumentProperties().getProperty( 'cross_fig' );
-  var labText = labSettings ?  toCap( labSettings.split( '_' )[ 2 ] ) : 'Figure ';
+  var labSettings = PropertiesService.getDocumentProperties().getProperty( 'cross_' + type.key );
+  var labText = labSettings ?  toCap( labSettings.split( '_' )[ 2 ] ) : type.text;
 
   if ( updateDoc() === 'error' ) return;
   
-  var labCount = encodeLabel();
-  var position = deleteLoF() || cursor;
+  var labCount = encodeLabel(key);
+  var position = deleteLoF(key) || cursor;
   
-  insertDummyLoF( labCount, labText, position );
+  insertDummyLoF( key, labCount, labText, position );
   
-  var html = HtmlService.createTemplateFromFile( 'lof' ).evaluate();
+  var template = HtmlService.createTemplateFromFile( 'lof' );
+  template.props = type;
+  var html = template.evaluate();
   html.setWidth( 250 ).setHeight( 90 );
-  DocumentApp.getUi().showModalDialog( html, 'Generating list of figures...' );
+  DocumentApp.getUi().showModalDialog( html, 'Generating list of ' + type.text );
 }
 
 function getCursorIndex() {
@@ -26,11 +43,13 @@ function getCursorIndex() {
 }
 
 
-function encodeLabel() {
+function encodeLabel(key) {
+  var type = types[key];
   var doc = DocumentApp.getActiveDocument();
   var paragraphs = doc.getBody().getParagraphs();
-  var labCount = { 'fig': 0 };
-  var figDescs = '';
+  var labCount = {};
+  labCount[ type.key ] = 0;
+  var indexDescs = '';
   
   for ( var i = 0; i < paragraphs.length; i++ ) {
     var text = paragraphs[ i ].editAsText();
@@ -39,72 +58,74 @@ function encodeLabel() {
     var url = locs[ 2 ][ 0 ];
 
     if ( !locs[ 0 ].length ) continue;
-    
-    if ( url.substr( 0, 4 ) === '#fig' ) {
+    var str = '#' + type.key;
+    if ( url.substr( 0, 4 ) === str ) {
 
-      figDescs += 'ഛಎ' + text.getText().match(/([ ]\d[^\w]*)([^\.]*)/)[2]
+      indexDescs += type.descMarker + text.getText().match(/([ ]\d[^\w]*)([^\.]*)/)[2]
     
       text.deleteText( start, start + 1 )
-        .insertText( start, '☙' );
-      labCount[ 'fig' ]++;
+        .insertText( start, type.indexMarker );
+      labCount[ type.key ]++;
     }
   }
   
-  PropertiesService.getDocumentProperties().setProperty('fig_descs', figDescs)
+  PropertiesService.getDocumentProperties().setProperty(type.key + '_descs', indexDescs)
   return labCount;
 }
 
 
-function deleteLoF() {
-  var lofTable = findLoF();
-  if ( !lofTable ) return;
+function deleteLoF(key) {
+  var indexTable = findLoF(key);
+  if ( !indexTable ) return;
   
-  var lofIndex = lofTable.getParent().getChildIndex( lofTable );
-  lofTable.removeFromParent();
+  var index = indexTable.getParent().getChildIndex( indexTable );
+  indexTable.removeFromParent();
   
-  return lofIndex
+  return index;
 }
 
 
-function findLoF() {
-  var lof = DocumentApp.getActiveDocument().getNamedRanges( 'lofTable' )[ 0 ];
+function findLoF(key) {
+  var type = types[key];
+  var index = DocumentApp.getActiveDocument().getNamedRanges( type.namedRange )[ 0 ];
   
-  return lof ? lof.getRange().getRangeElements()[ 0 ].getElement().asTable() : null;
+  return index ? index.getRange().getRangeElements()[ 0 ].getElement().asTable() : null;
 }
 
 
-function insertDummyLoF( labCount, labText, position ) {
+function insertDummyLoF( key, labCount, labText, position ) {
+  var type = types[key];
   var doc = DocumentApp.getActiveDocument();
   var lofCells = [];
   var labText = toCap( labText );
   var placeholder = '...';
   var range = doc.newRange();
   
-  doc.getNamedRanges( 'lofTable' ).forEach( function( r ) {
+  doc.getNamedRanges( type.namedRange ).forEach( function( r ) {
     r.remove()
   });
   
-  var figDescs = PropertiesService.getDocumentProperties().getProperty('fig_descs');
-  var splitDescs = figDescs ? figDescs.split('ഛಎ') : null;
+  var indexDescs = PropertiesService.getDocumentProperties().getProperty(type.key + '_descs');
+  var splitDescs = indexDescs ? indexDescs.split(type.descMarker) : null;
   
-  for ( var i = 1; i <= labCount[ 'fig' ]; i++ ) {
-    var figName = labText + i;
-    var figDesc = splitDescs && splitDescs[i].length ? ': ' + splitDescs[i] : '';
-    var row = [ figName + figDesc, placeholder ];
+  for ( var i = 1; i <= labCount[ type.key ]; i++ ) {
+    var indexName = labText + i;
+    var indexDesc = splitDescs && splitDescs[i].length ? ': ' + splitDescs[i] : '';
+    var row = [ indexName + indexDesc, placeholder ];
     lofCells.push( row );
   }
   
-  var lofTable = doc.getBody().insertTable( position, lofCells )
-  styleLoF( lofTable );
+  var indexTable = doc.getBody().insertTable( position, lofCells )
+  styleLoF( indexTable );
   
-  range.addElement( lofTable );
-  doc.addNamedRange('lofTable', range.build() )
+  range.addElement( indexTable );
+  doc.addNamedRange(type.namedRange, range.build() )
 }
 
 
-function styleLoF( lofTable ) {
+function styleLoF( indexTable ) {
   
-  lofTable.setBorderWidth( 0 );
+  indexTable.setBorderWidth( 0 );
   
   var styleAttributes = {
     'BOLD': null,
@@ -113,10 +134,10 @@ function styleLoF( lofTable ) {
     'FONT_SIZE': null
   };
   
-  for ( var i = lofTable.getNumRows(); i--; ) {
-    var row = lofTable.getRow( i );
+  for ( var i = indexTable.getNumRows(); i--; ) {
+    var row = indexTable.getRow( i );
     
-    lofTable.setAttributes( styleAttributes ).setColumnWidth( 1, 64 );
+    indexTable.setAttributes( styleAttributes ).setColumnWidth( 1, 64 );
     row.getCell( 0 ).setPaddingLeft( 0 );
     row.getCell( 1 ).setPaddingRight( 0 )
       .getChild( 0 ).asParagraph().setAlignment( DocumentApp.HorizontalAlignment.RIGHT );
@@ -129,9 +150,9 @@ function getDocAsPDF() {
 }
 
 
-function insertLoFNumbers( pg_nums ) {
-  
-  var lofTable = findLoF();
+function insertLoFNumbers( key, pg_nums ) {
+  var type = types[key];  
+  var lofTable = findLoF(key);
   var currentRow = 0;
   
   for ( var i = 0; i < pg_nums.length; i++ ) {
@@ -148,7 +169,8 @@ function insertLoFNumbers( pg_nums ) {
 }
 
 
-function restoreLabels() {
+function restoreLabels( key ) {
+  var type = types[key]; 
   var doc = DocumentApp.getActiveDocument();
   var paras = doc.getBody().getParagraphs();
   
@@ -163,7 +185,8 @@ function restoreLabels() {
     for ( var k = starts.length; k--; ) {
       var start = starts[ k ];
       var url = urls[ k ];
-      if (url.substr( 0, 4 ) === '#fig') text.deleteText( start - 1, start );
+      var str = '#' + type.key;
+      if (url.substr( 0, 4 ) === str) text.deleteText( start - 1, start );
     }
   }
   

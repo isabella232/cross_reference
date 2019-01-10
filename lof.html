@@ -3,52 +3,68 @@
 </script>
   
 <script>
+var params = <?!= JSON.stringify(props) ?>;
+console.log(JSON.stringify(params));
 
-PDFJS.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/1.10.81/pdf.worker.js'
-page_labs = [];
+function init(props) {
+  console.log('props')
+  var stringifiedProps = JSON.stringify(props);
+  console.log(stringifiedProps);
+  PDFJS.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/1.10.81/pdf.worker.js'
+  page_labs = [];
 
-window.onload = google.script.run.withSuccessHandler(countFigures).getDocAsPDF();
+  window.onload = google.script.run.withSuccessHandler(countFigures).getDocAsPDF();
 
-function logIt(blob) {
-  var pdf = PDFJS.getDocument({data: blob});
-  return pdf.then(function(pdf) {
-    var max_pages = pdf.pdfInfo.numPages,
-        promise_count = [];
-    for (var i = 1; i <= max_pages; i++) {
-      var page = pdf.getPage(i);
-      promise_count.push(page.then(function(page) {
-        var text_content = page.getTextContent();
-        return text_content.then(function(page){
-          return text_content
-        });
-      }));
-    }
-  
-    // Wait for all pages and sum counts
-  
-    return Promise.all(promise_count).then(function (page_counts) {
-      var final_page_count = [];
-      for (var j = 0; j < page_counts.length; j++) {
-        var page_as_string = JSON.stringify(page_counts[j]);
-        final_page_count.push(page_as_string.split('☙').length - 1)
+  function logIt(blob) {
+    var pdf = PDFJS.getDocument({data: blob});
+    return pdf.then(function(pdf) {
+      var max_pages = pdf.pdfInfo.numPages,
+          promise_count = [];
+      for (var i = 1; i <= max_pages; i++) {
+        var page = pdf.getPage(i);
+        promise_count.push(page.then(function(page) {
+          var text_content = page.getTextContent();
+          return text_content.then(function(page){
+            return text_content
+          });
+        }));
       }
-      return final_page_count;
+    
+      // Wait for all pages and sum counts
+    
+      return Promise.all(promise_count).then(function (page_counts) {
+        var final_page_count = [];
+        for (var j = 0; j < page_counts.length; j++) {
+          var page_as_string = JSON.stringify(page_counts[j]);
+          console.log('props.indexMarker');          
+          console.log(props.indexMarker);
+          console.log(JSON.stringify(props));
+          final_page_count.push(page_as_string.split(props.indexMarker).length - 1)
+        }
+        return final_page_count;
+      });
     });
-  });
+  }
+
+  function countFigures(blob) {
+    logIt(blob).then(function (count) {
+      console.log('countFigures');
+      console.log(count);
+      console.log(JSON.stringify(count));
+      google.script.run.withSuccessHandler(restoreLabels).insertLoFNumbers(props.key, count);   
+    });
+  }
+
+
+  function restoreLabels() {
+    google.script.run.withSuccessHandler(closeDialog).restoreLabels(props.key);
+  }
+
+  function closeDialog() {
+    google.script.host.close();
+  }
 }
 
-function countFigures(blob) {
-  logIt(blob).then(function (count) {
-    google.script.run.withSuccessHandler(restoreLabels).insertLoFNumbers(count);   
-  });
-}
+init(params);
 
-
-function restoreLabels() {
-  google.script.run.withSuccessHandler(closeDialog).restoreLabels();
-}
-
-function closeDialog() {
-  google.script.host.close();
-}
 </script>

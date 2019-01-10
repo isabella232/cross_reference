@@ -129,3 +129,44 @@ function cloneColor(lab_or_ref) {
   
   return [lab_or_ref, text.getAttributes(offset).FOREGROUND_COLOR.substr(1,7)];
 }
+
+function createLinks(text, code, create) {
+  Logger.log('tryLinks');
+  Logger.log(text);
+  Logger.log(code);
+  var doc = DocumentApp.getActiveDocument();
+  var body = doc.getBody();
+  var links = [];
+ 
+  var foundElement = null;
+  do {
+    // Find the next match
+    foundElement = body.findText(text, foundElement);
+    if (!foundElement) break;
+    // Get the text object from the element
+    var foundText = foundElement.getElement();
+
+    // Where in the element is the found text?
+    var start = foundElement.getStartOffset();
+    var end = foundElement.getEndOffsetInclusive();
+
+    // get text and create link
+    var txt = foundText.getText();
+    var link = txt.replace(text, code).replace(/\W+/g, '_').toLowerCase().replace('_', '#')
+    Logger.log(txt);
+    Logger.log(link);
+    var color = foundText.getForegroundColor();
+    var isBold = foundText.isBold();
+    var isUnderline = foundText.isUnderline();
+    if (create) {
+      var linkEl = foundText.setLinkUrl(start, end, link);
+      linkEl.setForegroundColor(color);
+      linkEl.setBold(isBold);
+      linkEl.setUnderline(isUnderline);
+    }
+    
+    links.push(txt.substring(start, end) + ', ' + link + ', ' + txt)
+
+  } while (foundElement);
+  return links;
+}
